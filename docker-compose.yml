@@ -1,0 +1,56 @@
+
+services:
+  postgres-db:
+    restart: always
+    image: postgres:16.4-bookworm
+    container_name: "rosearch_postgres_container"
+    user: postgres
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./PostgreSQL/.env
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - dbdata:/var/lib/postgresql/data/
+
+  backend:
+    image: "roback_image"
+    container_name: "roback_container"
+    build: Roback
+    volumes:
+      - ./PostgreSQL/data/media:/home/roback/media
+      - ./Roback/src:/home/roback/src
+    env_file:
+      - Roback/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+
+  nginx:
+    build: ./nginx
+    image: "ronginx_image"
+    container_name: "ronginx_container"
+    ports:
+      - "1337:80"
+    volumes:
+      - ./PostgreSQL/data/media:/home/roback/media
+    depends_on:
+      - backend
+
+  frontend:
+    image: "rofront_image"
+    container_name: "rofront_container"
+    build: ./Rofront
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  dbdata:
